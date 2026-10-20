@@ -1,0 +1,16 @@
+{
+  "name": "Sony Remote",
+  "short_name": "Sony Remote",
+  "description": "Controle remoto para a TV Sony Bravia",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F0F0F0",
+  "theme_color": "#D93C2F",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

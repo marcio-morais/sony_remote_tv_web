@@ -28,6 +28,13 @@ from pathlib import Path
 PORT = 8000
 TIMEOUT_SECONDS = 4
 ROOT = Path(__file__).resolve().parent / "public"
+STATIC_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".webmanifest": "application/manifest+json",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+}
 
 # TV discovery: SSDP multicast plus a scan of the local /24 as a backup
 SSDP_ADDRESS = ("239.255.255.250", 1900)
@@ -268,7 +275,9 @@ def lan_ip():
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
-        sys.stderr.write("[%s] %s\n" % (self.log_date_time_string(), fmt % args))
+        # Started without a console (pythonw, launchd, systemd): stderr may not exist
+        if sys.stderr is not None:
+            sys.stderr.write("[%s] %s\n" % (self.log_date_time_string(), fmt % args))
 
     def _send_json(self, code, payload):
         data = json.dumps(payload).encode("utf-8")
@@ -280,14 +289,20 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        if self.path not in ("/", "/index.html"):
+        route = urllib.parse.urlparse(self.path).path
+        if route == "/":
+            route = "/index.html"
+        target = (ROOT / route.lstrip("/")).resolve()
+        content_type = STATIC_TYPES.get(target.suffix.lower())
+        # Only known file types, and only inside public/ (no path traversal)
+        if content_type is None or ROOT not in target.parents or not target.is_file():
             self._send_json(404, {"ok": False, "body": "not found"})
             return
-        data = (ROOT / "index.html").read_bytes()
+        data = target.read_bytes()
         self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(data)
 
