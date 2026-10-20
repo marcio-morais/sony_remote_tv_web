@@ -57,7 +57,28 @@ IRCC_CODES = {
     "CONFIRM": "AAAAAQAAAAEAAABlAw==",
     "HOME": "AAAAAQAAAAEAAABgAw==",
     "BACK": "AAAAAgAAAJcAAAAjAw==",
+    "OPTIONS": "AAAAAgAAAJcAAAA2Aw==",
+    "GUIDE": "AAAAAgAAAKQAAABbAw==",
+    "SEN": "AAAAAgAAABoAAAB9Aw==",
+    "SYNC_MENU": "AAAAAgAAABoAAABYAw==",
+    "INFO": "AAAAAQAAAAEAAAA6Aw==",
+    "EXIT": "AAAAAQAAAAEAAABjAw==",
+    "JUMP": "AAAAAQAAAAEAAAA7Aw==",
+    "RED": "AAAAAgAAAJcAAAAlAw==",
+    "GREEN": "AAAAAgAAAJcAAAAmAw==",
+    "YELLOW": "AAAAAgAAAJcAAAAnAw==",
+    "BLUE": "AAAAAgAAAJcAAAAkAw==",
+    "PLAY": "AAAAAgAAAJcAAAAaAw==",
+    "PAUSE": "AAAAAgAAAJcAAAAZAw==",
+    "STOP": "AAAAAgAAAJcAAAAYAw==",
+    "REWIND": "AAAAAgAAAJcAAAAbAw==",
+    "FORWARD": "AAAAAgAAAJcAAAAcAw==",
 }
+# Digits: NUM1..NUM9 then NUM0 map to the base64 letters A..J
+IRCC_CODES.update({
+    "NUM%d" % digit: "AAAAAQAAAAEAAAA%sAw==" % "ABCDEFGHIJ"[(digit - 1) % 10]
+    for digit in range(10)
+})
 
 SOAP_TEMPLATE = (
     '<?xml version="1.0"?>'

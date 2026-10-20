@@ -28,6 +28,8 @@
     color: var(--text);
     font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     -webkit-tap-highlight-color: transparent;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column;
   }
   button, input { font: inherit; color: inherit; }
   button { cursor: pointer; touch-action: manipulation; }
@@ -42,6 +44,7 @@
   }
 
   .remote {
+    width: 100%; flex: 1;
     max-width: 390px;
     margin: 0 auto;
     padding: 16px 20px 24px;
@@ -104,34 +107,67 @@
   }
   .key:active { filter: brightness(.9); }
 
-  .top { display: flex; gap: 12px; }
-  .top .pill { flex: 1; }
-  .power { width: 56px; flex: none; border-radius: 50%; background: var(--power); color: #fff; border-color: transparent; }
+  .tab { display: flex; flex-direction: column; gap: 14px; }
+  .tab[hidden] { display: none; }
+  .key.sm {
+    min-height: 48px; border-radius: 24px; padding: 0 6px;
+    font-size: 13px; line-height: 1.15; text-align: center;
+  }
+  .key.accent { background: var(--accent); color: #fff; border-color: transparent; }
+  .key.power { background: var(--power); color: #fff; border-color: transparent; }
+  .row4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .row5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+  .stage {
+    display: grid; grid-template-columns: minmax(0, 60px) 1fr minmax(0, 60px);
+    gap: 8px; align-items: stretch;
+  }
+  .side { display: flex; flex-direction: column; justify-content: space-between; }
+  .audio { display: grid; grid-template-columns: 1fr 2fr 2fr; gap: 8px; }
+  .grp { display: flex; flex-direction: column; gap: 4px; }
+  .grp .key { flex: 1; }
+  .lbl {
+    text-align: center; font-size: 12px; font-weight: 600;
+    letter-spacing: .08em; color: var(--muted);
+  }
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; flex: 1; }
+  .numpad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .numpad .key { min-height: 56px; font-size: 20px; }
+  .numpad .key.sm { font-size: 13px; }
+  .colors .key { border-color: transparent; }
+  .c-red { background: #C0332A; }
+  .c-green { background: #1B7F3B; }
+  .c-yellow { background: #F2C200; }
+  .c-blue { background: #1A56DB; }
+
+  .tabs {
+    position: sticky; bottom: 0; z-index: 1;
+    width: 100%; max-width: 390px; margin: 0 auto; display: flex;
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  .tabs button {
+    flex: 1; min-height: 56px; border: 0; background: transparent;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+  }
+  .tabs button svg { width: 22px; height: 22px; }
+  .tabs button[aria-selected="true"] { color: var(--accent); box-shadow: inset 0 3px 0 var(--accent); }
 
   .dpad {
-    align-self: center;
+    justify-self: center;
     display: grid;
-    grid-template-columns: repeat(3, 64px);
-    grid-template-rows: repeat(3, 64px);
-    gap: 8px; padding: 8px;
+    grid-template-columns: repeat(3, 52px);
+    grid-template-rows: repeat(3, 52px);
+    gap: 6px; padding: 6px;
     background: var(--ring);
-    border-radius: 120px;
+    border-radius: 999px;
   }
-  .dpad .key { width: 64px; min-height: 64px; border-radius: 50%; padding: 0; }
+  .dpad .key { width: 52px; min-height: 52px; border-radius: 50%; padding: 0; }
   .dpad .up { grid-area: 1 / 2; }
   .dpad .left { grid-area: 2 / 1; }
   .dpad .ok { grid-area: 2 / 2; background: #2B2F38; color: #fff; border-color: transparent; font-size: 15px; }
   .dpad .right { grid-area: 2 / 3; }
   .dpad .down { grid-area: 3 / 2; }
 
-  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-  .rocker { display: flex; align-items: center; background: var(--ring); border-radius: 28px; }
-  .rocker .key { width: 72px; flex: none; }
-  .rocker span {
-    flex: 1; text-align: center;
-    color: var(--muted); font-weight: 600; font-size: 13px; letter-spacing: .08em;
-  }
 
   .panel { background: var(--panel); border-radius: 16px; padding: 16px; }
   summary { font-weight: 600; cursor: pointer; }
@@ -193,68 +229,167 @@
     <span class="dot"></span><span id="statusText">Toque na engrenagem para conectar</span>
   </p>
 
-  <div class="top">
-    <button class="key power" data-key="POWER" aria-label="Ligar ou desligar">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"></path><path d="M6.3 6.8a8 8 0 1 0 11.4 0"></path></svg>
-    </button>
-    <button class="key pill" data-key="INPUT">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h11"></path><path d="M11 8l4 4-4 4"></path><path d="M20 5v14"></path></svg>
-      Entrada
-    </button>
-    <button class="key pill" data-key="MUTE">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="M17 9l4 6M21 9l-4 6"></path></svg>
-      Mudo
-    </button>
-  </div>
+  <section class="tab" id="tab-remote" role="tabpanel" aria-label="Controle">
+    <div class="row4">
+      <button class="key sm" data-key="INPUT">Entrada</button>
+      <button class="key sm" data-key="GUIDE">Guia</button>
+      <button class="key sm accent" data-key="SEN">SEN</button>
+      <button class="key sm power" data-key="POWER" aria-label="Ligar ou desligar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"></path><path d="M6.3 6.8a8 8 0 1 0 11.4 0"></path></svg>
+      </button>
+    </div>
 
-  <div class="dpad" role="group" aria-label="Navegação">
-    <button class="key up" data-key="UP" data-repeat aria-label="Cima">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg>
-    </button>
-    <button class="key left" data-key="LEFT" data-repeat aria-label="Esquerda">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
-    </button>
-    <button class="key ok" data-key="CONFIRM" aria-label="Confirmar">OK</button>
-    <button class="key right" data-key="RIGHT" data-repeat aria-label="Direita">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
-    </button>
-    <button class="key down" data-key="DOWN" data-repeat aria-label="Baixo">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
-    </button>
-  </div>
+    <div class="stage">
+      <div class="side">
+        <span></span>
+        <button class="key sm" data-key="BACK">Voltar</button>
+      </div>
 
-  <div class="pair">
-    <button class="key" data-key="BACK">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-3"></path></svg>
-      Voltar
-    </button>
-    <button class="key" data-key="HOME">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"></path><path d="M6 10v10h12V10"></path></svg>
-      Home
-    </button>
-  </div>
+      <div class="dpad" role="group" aria-label="Navegação">
+        <button class="key up" data-key="UP" data-repeat aria-label="Cima">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg>
+        </button>
+        <button class="key left" data-key="LEFT" data-repeat aria-label="Esquerda">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+        </button>
+        <button class="key ok" data-key="CONFIRM" aria-label="Confirmar">OK</button>
+        <button class="key right" data-key="RIGHT" data-repeat aria-label="Direita">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+        </button>
+        <button class="key down" data-key="DOWN" data-repeat aria-label="Baixo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+        </button>
+      </div>
 
-  <div class="rocker" role="group" aria-label="Volume">
-    <button class="key" data-key="VOL_DOWN" data-repeat aria-label="Diminuir volume">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg>
-    </button>
-    <span>VOL</span>
-    <button class="key" data-key="VOL_UP" data-repeat aria-label="Aumentar volume">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
-    </button>
-  </div>
+      <div class="side">
+        <button class="key sm accent" data-key="HOME">Home</button>
+        <button class="key sm" data-key="OPTIONS">Opções</button>
+      </div>
+    </div>
 
-  <div class="rocker" role="group" aria-label="Canal">
-    <button class="key" data-key="CH_DOWN" data-repeat aria-label="Canal anterior">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg>
-    </button>
-    <span>CH</span>
-    <button class="key" data-key="CH_UP" data-repeat aria-label="Próximo canal">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
-    </button>
-  </div>
+    <div class="audio">
+      <div class="grp">
+        <span class="lbl" aria-hidden="true">&nbsp;</span>
+        <button class="key sm" data-key="MUTE" aria-label="Mudo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="M17 9l4 6M21 9l-4 6"></path></svg>
+        </button>
+      </div>
+      <div class="grp" role="group" aria-label="Volume">
+        <span class="lbl">VOL</span>
+        <div class="duo">
+          <button class="key sm" data-key="VOL_DOWN" data-repeat aria-label="Diminuir volume">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg>
+          </button>
+          <button class="key sm" data-key="VOL_UP" data-repeat aria-label="Aumentar volume">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div class="grp" role="group" aria-label="Canal">
+        <span class="lbl">CH</span>
+        <div class="duo">
+          <button class="key sm" data-key="CH_DOWN" data-repeat aria-label="Canal anterior">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg>
+          </button>
+          <button class="key sm" data-key="CH_UP" data-repeat aria-label="Próximo canal">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+          </button>
+        </div>
+      </div>
+    </div>
 
+    <div class="row4">
+      <button class="key sm" data-key="SYNC_MENU">Sync Menu</button>
+      <button class="key sm" data-key="INFO">Info</button>
+      <button class="key sm" data-key="EXIT">Sair</button>
+      <button class="key sm" data-key="JUMP">Jump</button>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-numbers" role="tabpanel" aria-label="Números" hidden>
+    <div class="numpad">
+      <button class="key" data-key="NUM1">1</button>
+      <button class="key" data-key="NUM2">2</button>
+      <button class="key" data-key="NUM3">3</button>
+      <button class="key" data-key="NUM4">4</button>
+      <button class="key" data-key="NUM5">5</button>
+      <button class="key" data-key="NUM6">6</button>
+      <button class="key" data-key="NUM7">7</button>
+      <button class="key" data-key="NUM8">8</button>
+      <button class="key" data-key="NUM9">9</button>
+      <button class="key sm" data-key="INFO">Info</button>
+      <button class="key" data-key="NUM0">0</button>
+      <button class="key sm" data-key="BACK">Voltar</button>
+    </div>
+
+    <div class="row4 colors" role="group" aria-label="Teclas coloridas">
+      <button class="key sm c-red" data-key="RED" aria-label="Vermelho"></button>
+      <button class="key sm c-green" data-key="GREEN" aria-label="Verde"></button>
+      <button class="key sm c-yellow" data-key="YELLOW" aria-label="Amarelo"></button>
+      <button class="key sm c-blue" data-key="BLUE" aria-label="Azul"></button>
+    </div>
+
+    <div class="row5" role="group" aria-label="Mídia">
+      <button class="key sm" data-key="REWIND" aria-label="Retroceder">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 6l-7 6 7 6V6z"></path><path d="M20 6l-7 6 7 6V6z"></path></svg>
+      </button>
+      <button class="key sm" data-key="PLAY" aria-label="Reproduzir">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7V5z"></path></svg>
+      </button>
+      <button class="key sm" data-key="PAUSE" aria-label="Pausar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"></path></svg>
+      </button>
+      <button class="key sm" data-key="STOP" aria-label="Parar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1"></rect></svg>
+      </button>
+      <button class="key sm" data-key="FORWARD" aria-label="Avançar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 6l7 6-7 6V6z"></path><path d="M4 6l7 6-7 6V6z"></path></svg>
+      </button>
+    </div>
+
+    <div class="audio">
+      <div class="grp">
+        <span class="lbl" aria-hidden="true">&nbsp;</span>
+        <button class="key sm" data-key="MUTE" aria-label="Mudo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="M17 9l4 6M21 9l-4 6"></path></svg>
+        </button>
+      </div>
+      <div class="grp" role="group" aria-label="Volume">
+        <span class="lbl">VOL</span>
+        <div class="duo">
+          <button class="key sm" data-key="VOL_DOWN" data-repeat aria-label="Diminuir volume">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg>
+          </button>
+          <button class="key sm" data-key="VOL_UP" data-repeat aria-label="Aumentar volume">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div class="grp" role="group" aria-label="Canal">
+        <span class="lbl">CH</span>
+        <div class="duo">
+          <button class="key sm" data-key="CH_DOWN" data-repeat aria-label="Canal anterior">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg>
+          </button>
+          <button class="key sm" data-key="CH_UP" data-repeat aria-label="Próximo canal">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
+
+<nav class="tabs" role="tablist" aria-label="Seções do controle">
+  <button type="button" role="tab" id="tabbtn-remote" data-tab="remote" aria-selected="true" aria-controls="tab-remote">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="3"></rect><circle cx="12" cy="8" r="1.5"></circle><path d="M10 14h4M10 18h4"></path></svg>
+    Controle
+  </button>
+  <button type="button" role="tab" id="tabbtn-numbers" data-tab="numbers" aria-selected="false" aria-controls="tab-numbers">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="1.5"></circle><circle cx="12" cy="6" r="1.5"></circle><circle cx="18" cy="6" r="1.5"></circle><circle cx="6" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="18" cy="12" r="1.5"></circle><circle cx="6" cy="18" r="1.5"></circle><circle cx="12" cy="18" r="1.5"></circle><circle cx="18" cy="18" r="1.5"></circle></svg>
+    Números
+  </button>
+</nav>
 
 <dialog class="sheet" id="settings" aria-labelledby="settingsTitle">
   <div class="sheet-body">
@@ -485,6 +620,20 @@
   }
 
   discoverBtn.addEventListener('click', discover);
+
+  // Bottom tabs switch between the remote and the number pad
+  const tabButtons = document.querySelectorAll('.tabs [role="tab"]');
+  function selectTab(name) {
+    tabButtons.forEach(function (button) {
+      button.setAttribute('aria-selected', String(button.dataset.tab === name));
+    });
+    document.querySelectorAll('.tab').forEach(function (panel) {
+      panel.hidden = panel.id !== 'tab-' + name;
+    });
+  }
+  tabButtons.forEach(function (button) {
+    button.addEventListener('click', function () { selectTab(button.dataset.tab); });
+  });
 
   // Connection and command history live in a sheet opened by the gear
   function openSettings() {
