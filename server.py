@@ -217,6 +217,26 @@ def power_status(ip, psk):
         return None
 
 
+def wake_if_standby(ip, psk):
+    """Called when the remote is opened: wake the TV only if it is not already on."""
+    status = power_status(ip, psk)
+    if status is None:
+        if tv_is_reachable(ip):
+            # Answers HTTP but cannot report its state: leave it alone unless we
+            # know we turned it off.
+            if _last_power.get(ip) != "off":
+                return {"ok": True, "state": "active"}
+        status = "standby"
+    if status == "active":
+        return {"ok": True, "state": "active"}
+    mac = learn_mac(ip)
+    if not mac:
+        return {"ok": False, "state": "unknown", "body": "MAC da TV desconhecido"}
+    wake_on_lan(mac, ip)
+    _last_power[ip] = "on"
+    return {"ok": True, "state": "waking"}
+
+
 def handle_power(ip, psk):
     """This TV ignores the IRCC toggle, accepts POWER_OFF while on, and in
     standby only wakes with Wake-on-LAN. We ask the TV for its state; when it
@@ -459,6 +479,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, handle_power(ip, psk))
             else:
                 self._send_json(200, send_key(ip, psk, key))
+        elif self.path == "/api/wake":
+            self._send_json(200, wake_if_standby(ip, psk))
         elif self.path == "/api/probe":
             self._send_json(200, {"results": probe(ip, psk)})
         else:

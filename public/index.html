@@ -721,9 +721,34 @@
     if (event.target === settings) settings.close();
   });
 
+  // Opening the remote (or coming back to it) wakes the TV if it is in standby
+  const WAKE_COOLDOWN_MS = 60000;
+  let lastWake = 0;
+
+  async function wakeIfStandby() {
+    if (!ipInput.value.trim()) return;
+    if (Date.now() - lastWake < WAKE_COOLDOWN_MS) return;
+    lastWake = Date.now();
+    try {
+      const result = await callApi('/api/wake', {});
+      if (result.state === 'waking') {
+        setStatus('Ligando a TV...', 'warn');
+      } else if (result.state === 'active') {
+        setStatus(tvName ? 'Conectado · ' + tvName : 'Conectado', 'ok');
+      }
+    } catch (err) { /* local server offline: the status line already says so on the first key */ }
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') wakeIfStandby();
+  });
+
   loadSettings();
   if (!ipInput.value.trim()) discover();
-  else if (!tvName) refreshName();
+  else {
+    if (!tvName) refreshName();
+    wakeIfStandby();
+  }
 </script>
 </body>
 </html>
