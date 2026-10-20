@@ -214,7 +214,7 @@
 <header class="appbar">
   <div class="inner">
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg>
-    <h1>Sony KDL-42W655A</h1>
+    <h1 id="tvName">Sony KDL-42W655A</h1>
     <button class="iconbtn" id="openSettings" type="button" aria-label="Conexão e histórico">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
     </button>
@@ -419,21 +419,38 @@
   const LOG_LIMIT = 8;
 
   // Load and persist connection settings (storage can be unavailable)
+  const tvNameEl = document.getElementById('tvName');
+  const DEFAULT_TITLE = 'Sony KDL-42W655A';
+  let tvName = '';
+
+  function updateTitle() {
+    tvNameEl.textContent = tvName || DEFAULT_TITLE;
+    document.title = tvName ? tvName + ' · Controle Sony' : 'Sony Remote';
+  }
   function loadSettings() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
       ipInput.value = saved.ip || '';
       pskInput.value = saved.psk || '0000';
+      tvName = saved.name || '';
     } catch (err) {
       pskInput.value = '0000';
     }
+    updateTitle();
   }
   function saveSettings() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ip: ipInput.value.trim(), psk: pskInput.value.trim() }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        ip: ipInput.value.trim(), psk: pskInput.value.trim(), name: tvName
+      }));
     } catch (err) { /* ignore */ }
   }
-  ipInput.addEventListener('input', saveSettings);
+  // Typing another IP means it may be a different TV, so forget the found name
+  ipInput.addEventListener('input', function () {
+    tvName = '';
+    saveSettings();
+    updateTitle();
+  });
   pskInput.addEventListener('input', saveSettings);
 
   function setStatus(text, tone) {
@@ -490,7 +507,7 @@
     }
     addLog(key, result, Math.round(performance.now() - started));
     if (result.ok) {
-      setStatus('Conectado · ' + ipInput.value.trim(), 'ok');
+      setStatus(tvName ? 'Conectado · ' + tvName : 'Conectado', 'ok');
     } else if (result.status === 403) {
       setStatus('TV recusou (403): confira a chave PSK na engrenagem.', 'error');
     } else {
@@ -554,10 +571,32 @@
 
   function chooseDevice(device) {
     ipInput.value = device.ip;
+    tvName = device.name;
     saveSettings();
+    updateTitle();
     foundEl.replaceChildren();
     discoverMsg.hidden = true;
-    setStatus('TV encontrada: ' + device.name + ' (' + device.ip + ')', 'ok');
+    setStatus('TV encontrada: ' + device.name, 'ok');
+  }
+
+  // Quietly looks up the name of a TV whose IP was saved before names were stored
+  async function refreshName() {
+    try {
+      const response = await fetch('/api/discover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await response.json();
+      const match = (data.devices || []).find(function (device) {
+        return device.ip === ipInput.value.trim();
+      });
+      if (match) {
+        tvName = match.name;
+        saveSettings();
+        updateTitle();
+      }
+    } catch (err) { /* keep the default title */ }
   }
 
   async function discover() {
@@ -582,10 +621,13 @@
           const option = document.createElement('button');
           option.type = 'button';
           const title = document.createElement('span');
-          title.textContent = device.name + (device.model ? ' · ' + device.model : '');
-          const detail = document.createElement('small');
-          detail.textContent = device.ip;
-          option.append(title, detail);
+          title.textContent = device.name;
+          option.append(title);
+          if (device.model) {
+            const detail = document.createElement('small');
+            detail.textContent = device.model;
+            option.append(detail);
+          }
           option.addEventListener('click', function () { chooseDevice(device); });
           foundEl.append(option);
         });
@@ -634,6 +676,7 @@
 
   loadSettings();
   if (!ipInput.value.trim()) discover();
+  else if (!tvName) refreshName();
 </script>
 </body>
 </html>
