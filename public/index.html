@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sony Remote</title>
+<style>
+  :root {
+    --bg: #F0F0F0;
+    --panel: #FFFFFF;
+    --ring: #E2E2E2;
+    --key: #FFFFFF;
+    --line: #CFCFCF;
+    --text: #212121;
+    --muted: #5F6368;
+    --accent: #1A56DB;
+    --brand: #D93C2F;
+    --power: #C0332A;
+    --ok: #1B7F3B;
+    --warn: #8A5A00;
+    --err: #B3261E;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; touch-action: manipulation; }
+  button:focus-visible, input:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  svg {
+    width: 24px; height: 24px; flex: none;
+    fill: none; stroke: currentColor; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  .remote {
+    max-width: 390px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .appbar {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--brand); color: #fff;
+    padding: 16px 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .25);
+  }
+  .appbar .inner {
+    max-width: 390px; margin: 0 auto;
+    display: flex; align-items: center; gap: 14px;
+  }
+  h1 { margin: 0; font-size: 20px; font-weight: 500; }
+  .status {
+    margin: 0;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--muted); font-size: 13px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .status[data-tone="ok"] .dot { background: var(--ok); }
+  .status[data-tone="warn"] .dot { background: var(--warn); }
+  .status[data-tone="error"] .dot { background: var(--err); }
+
+  .key {
+    min-height: 56px;
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    background: var(--key);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-weight: 600; font-size: 14px;
+    user-select: none; -webkit-user-select: none;
+  }
+  .key:active { filter: brightness(.9); }
+
+  .top { display: flex; gap: 12px; }
+  .top .pill { flex: 1; }
+  .power { width: 56px; flex: none; border-radius: 50%; background: var(--power); color: #fff; border-color: transparent; }
+
+  .dpad {
+    align-self: center;
+    display: grid;
+    grid-template-columns: repeat(3, 64px);
+    grid-template-rows: repeat(3, 64px);
+    gap: 8px; padding: 8px;
+    background: var(--ring);
+    border-radius: 120px;
+  }
+  .dpad .key { width: 64px; min-height: 64px; border-radius: 50%; padding: 0; }
+  .dpad .up { grid-area: 1 / 2; }
+  .dpad .left { grid-area: 2 / 1; }
+  .dpad .ok { grid-area: 2 / 2; background: #2B2F38; color: #fff; border-color: transparent; font-size: 15px; }
+  .dpad .right { grid-area: 2 / 3; }
+  .dpad .down { grid-area: 3 / 2; }
+
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .rocker { display: flex; align-items: center; background: var(--ring); border-radius: 28px; }
+  .rocker .key { width: 72px; flex: none; }
+  .rocker span {
+    flex: 1; text-align: center;
+    color: var(--muted); font-weight: 600; font-size: 13px; letter-spacing: .08em;
+  }
+
+  .panel { background: var(--panel); border-radius: 16px; padding: 16px; }
+  summary { font-weight: 600; cursor: pointer; }
+  .fields { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-top: 14px; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+  input {
+    min-height: 44px; padding: 0 12px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    font-size: 16px; color: var(--text);
+  }
+  .btn {
+    min-height: 44px; padding: 0 14px; margin-top: 14px;
+    background: transparent; border: 1px solid var(--line); border-radius: 10px;
+    font-weight: 600; font-size: 14px;
+  }
+  .hint { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+  pre {
+    margin: 12px 0 0; padding: 12px; max-height: 280px; overflow: auto;
+    background: var(--bg); border-radius: 10px;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  pre[hidden] { display: none; }
+
+  h2 { margin: 0 0 8px; font-size: 15px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li {
+    display: grid; grid-template-columns: 64px 76px minmax(0, 1fr); gap: 8px;
+    min-height: 28px; align-items: center; font-size: 12px;
+  }
+  li .time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  li .name { font-weight: 600; }
+  li[data-ok="true"] .result { color: var(--ok); }
+  li[data-ok="false"] .result { color: var(--warn); }
+  .empty { color: var(--muted); font-size: 13px; margin: 0; }
+</style>
+</head>
+<body>
+<header class="appbar">
+  <div class="inner">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg>
+    <h1>Sony KDL-42W655A</h1>
+  </div>
+</header>
+<main class="remote">
+  <p class="status" id="status" data-tone="idle" role="status">
+    <span class="dot"></span><span id="statusText">Defina o IP da TV em Conexão</span>
+  </p>
+
+  <div class="top">
+    <button class="key power" data-key="POWER" aria-label="Ligar ou desligar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"></path><path d="M6.3 6.8a8 8 0 1 0 11.4 0"></path></svg>
+    </button>
+    <button class="key pill" data-key="INPUT">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h11"></path><path d="M11 8l4 4-4 4"></path><path d="M20 5v14"></path></svg>
+      Entrada
+    </button>
+    <button class="key pill" data-key="MUTE">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="M17 9l4 6M21 9l-4 6"></path></svg>
+      Mudo
+    </button>
+  </div>
+
+  <div class="dpad" role="group" aria-label="Navegação">
+    <button class="key up" data-key="UP" data-repeat aria-label="Cima">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg>
+    </button>
+    <button class="key left" data-key="LEFT" data-repeat aria-label="Esquerda">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+    </button>
+    <button class="key ok" data-key="CONFIRM" aria-label="Confirmar">OK</button>
+    <button class="key right" data-key="RIGHT" data-repeat aria-label="Direita">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+    </button>
+    <button class="key down" data-key="DOWN" data-repeat aria-label="Baixo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+  </div>
+
+  <div class="pair">
+    <button class="key" data-key="BACK">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"></path><path d="M4 9h10a6 6 0 0 1 0 12h-3"></path></svg>
+      Voltar
+    </button>
+    <button class="key" data-key="HOME">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"></path><path d="M6 10v10h12V10"></path></svg>
+      Home
+    </button>
+  </div>
+
+  <div class="rocker" role="group" aria-label="Volume">
+    <button class="key" data-key="VOL_DOWN" data-repeat aria-label="Diminuir volume">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg>
+    </button>
+    <span>VOL</span>
+    <button class="key" data-key="VOL_UP" data-repeat aria-label="Aumentar volume">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+    </button>
+  </div>
+
+  <div class="rocker" role="group" aria-label="Canal">
+    <button class="key" data-key="CH_DOWN" data-repeat aria-label="Canal anterior">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg>
+    </button>
+    <span>CH</span>
+    <button class="key" data-key="CH_UP" data-repeat aria-label="Próximo canal">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+    </button>
+  </div>
+
+  <details class="panel" id="connection" open>
+    <summary>Conexão</summary>
+    <div class="fields">
+      <label>IP da TV
+        <input id="ip" inputmode="decimal" autocomplete="off" placeholder="192.168.0.50">
+      </label>
+      <label>Chave PSK
+        <input id="psk" autocomplete="off" placeholder="0000">
+      </label>
+    </div>
+    <button class="btn" id="probe" type="button">Testar conexão</button>
+    <pre id="probeOut" hidden></pre>
+    <p class="hint">Na TV: Configurações &gt; Rede &gt; Controle IP, com autenticação "Normal e Pre-Shared Key" e a mesma chave acima.</p>
+  </details>
+
+  <section class="panel" aria-labelledby="logTitle">
+    <h2 id="logTitle">Últimos comandos</h2>
+    <p class="empty" id="empty">Aperte uma tecla para ver o retorno da TV.</p>
+    <ul id="log"></ul>
+  </section>
+</main>
+
+<script>
+  const ipInput = document.getElementById('ip');
+  const pskInput = document.getElementById('psk');
+  const statusEl = document.getElementById('status');
+  const statusText = document.getElementById('statusText');
+  const logEl = document.getElementById('log');
+  const emptyEl = document.getElementById('empty');
+  const probeOut = document.getElementById('probeOut');
+  const STORAGE_KEY = 'sonyremote.settings';
+  const LOG_LIMIT = 8;
+
+  // Load and persist connection settings (storage can be unavailable)
+  function loadSettings() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      ipInput.value = saved.ip || '';
+      pskInput.value = saved.psk || '0000';
+    } catch (err) {
+      pskInput.value = '0000';
+    }
+  }
+  function saveSettings() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ip: ipInput.value.trim(), psk: pskInput.value.trim() }));
+    } catch (err) { /* ignore */ }
+  }
+  ipInput.addEventListener('input', saveSettings);
+  pskInput.addEventListener('input', saveSettings);
+
+  function setStatus(text, tone) {
+    statusText.textContent = text;
+    statusEl.dataset.tone = tone;
+  }
+
+  async function callApi(path, extra) {
+    const response = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ ip: ipInput.value.trim(), psk: pskInput.value.trim() }, extra))
+    });
+    return response.json();
+  }
+
+  function addLog(key, result, elapsedMs) {
+    emptyEl.hidden = true;
+    const row = document.createElement('li');
+    row.dataset.ok = String(Boolean(result.ok));
+
+    const time = document.createElement('span');
+    time.className = 'time';
+    time.textContent = new Date().toLocaleTimeString('pt-BR');
+
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = key;
+
+    const outcome = document.createElement('span');
+    outcome.className = 'result';
+    outcome.textContent = result.ok
+      ? 'OK · ' + elapsedMs + ' ms'
+      : 'Falhou · ' + (result.status === null || result.status === undefined ? 'sem resposta' : 'HTTP ' + result.status);
+
+    row.append(time, name, outcome);
+    logEl.prepend(row);
+    while (logEl.children.length > LOG_LIMIT) logEl.lastChild.remove();
+  }
+
+  async function sendKey(key) {
+    if (!ipInput.value.trim()) {
+      setStatus('Defina o IP da TV em Conexão', 'warn');
+      document.getElementById('connection').open = true;
+      ipInput.focus();
+      return;
+    }
+    if (navigator.vibrate) navigator.vibrate(10);
+    const started = performance.now();
+    let result;
+    try {
+      result = await callApi('/api/send', { key: key });
+    } catch (err) {
+      result = { ok: false, status: null, body: 'servidor local indisponível' };
+    }
+    addLog(key, result, Math.round(performance.now() - started));
+    if (result.ok) {
+      setStatus('Conectado · ' + ipInput.value.trim(), 'ok');
+    } else if (result.status === 403) {
+      setStatus('TV recusou (403): provável PIN/registro. Rode "Testar conexão".', 'error');
+    } else {
+      setStatus('Sem resposta da TV. Rode "Testar conexão".', 'error');
+    }
+  }
+
+  // Keys: tap = one press; arrows, volume and channel repeat while held
+  const REPEAT_DELAY_MS = 450;
+  const REPEAT_INTERVAL_MS = 160;
+  let holdTimer = null;
+  let holdInterval = null;
+
+  function stopHold() {
+    clearTimeout(holdTimer);
+    clearInterval(holdInterval);
+    holdTimer = holdInterval = null;
+  }
+
+  document.querySelectorAll('[data-key]').forEach(function (button) {
+    const key = button.dataset.key;
+    if (button.hasAttribute('data-repeat')) {
+      button.addEventListener('pointerdown', function () {
+        sendKey(key);
+        holdTimer = setTimeout(function () {
+          holdInterval = setInterval(function () { sendKey(key); }, REPEAT_INTERVAL_MS);
+        }, REPEAT_DELAY_MS);
+      });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (type) {
+        button.addEventListener(type, stopHold);
+      });
+      // Keyboard activation (Enter/Space) arrives as a click with detail 0
+      button.addEventListener('click', function (event) {
+        if (event.detail === 0) sendKey(key);
+      });
+    } else {
+      button.addEventListener('click', function () { sendKey(key); });
+    }
+  });
+
+  document.getElementById('probe').addEventListener('click', async function () {
+    if (!ipInput.value.trim()) { ipInput.focus(); return; }
+    probeOut.hidden = false;
+    probeOut.textContent = 'Testando...';
+    try {
+      const data = await callApi('/api/probe', {});
+      if (!data.results) { probeOut.textContent = data.body || 'Erro desconhecido'; return; }
+      probeOut.textContent = data.results.map(function (item) {
+        const status = item.status === null ? 'sem resposta' : 'HTTP ' + item.status;
+        return item.name + '\n' + item.url + '\n=> ' + status + '\n' + (item.body || '').slice(0, 200);
+      }).join('\n\n');
+    } catch (err) {
+      probeOut.textContent = 'Servidor local indisponível: rode python server.py';
+    }
+  });
+
+  loadSettings();
+</script>
+</body>
+</html>
