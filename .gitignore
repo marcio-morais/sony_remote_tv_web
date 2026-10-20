@@ -3,3 +3,4 @@ __pycache__/
 .DS_Store
 .wrangler/
 node_modules/
+tv_macs.json

@@ -50,7 +50,8 @@ SCAN_WORKERS = 64
 
 # Standard Sony IRCC codes (base64 payload sent inside the SOAP envelope)
 IRCC_CODES = {
-    "POWER": "AAAAAQAAAAEAAAAVAw==",
+    "POWER": "AAAAAQAAAAEAAAAVAw==",  # toggle; send_key() replaces it, see handle_power()
+    "POWER_OFF": "AAAAAQAAAAEAAAAvAw==",  # the only power code this KDL-42W655A obeys
     "VOL_UP": "AAAAAQAAAAEAAAASAw==",
     "VOL_DOWN": "AAAAAQAAAAEAAAATAw==",
     "MUTE": "AAAAAQAAAAEAAAAUAw==",
@@ -119,6 +120,91 @@ def http_call(url, data=None, headers=None, method="GET"):
         return {"status": error.code, "body": error.read(400).decode("utf-8", "replace")}
     except Exception as error:  # timeout, refused, unreachable...
         return {"status": None, "body": str(error)}
+
+
+MAC_PATTERN = re.compile(r"(?:[0-9a-fA-F]{1,2}[:-]){5}[0-9a-fA-F]{1,2}")
+MAC_FILE = Path(__file__).resolve().parent / "tv_macs.json"
+_mac_lock = threading.Lock()
+
+
+def _load_macs():
+    try:
+        return json.loads(MAC_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _read_arp(ip):
+    """Look the TV up in the OS neighbour table. Only works while the TV has
+    talked to this PC recently, so we remember the result in tv_macs.json."""
+    import subprocess
+
+    if sys.platform.startswith("win"):
+        command = ["arp", "-a", ip]
+    elif sys.platform == "darwin":
+        command = ["arp", "-n", ip]
+    else:
+        command = ["ip", "neigh", "show", ip]
+    try:
+        flags = 0x08000000 if sys.platform.startswith("win") else 0  # CREATE_NO_WINDOW
+        output = subprocess.run(
+            command, capture_output=True, text=True, timeout=3, creationflags=flags
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in output.splitlines():
+        if ip in line or not sys.platform.startswith("win"):
+            match = MAC_PATTERN.search(line)
+            if match:
+                parts = re.split(r"[:-]", match.group(0))
+                mac = ":".join(part.zfill(2) for part in parts).lower()
+                if mac not in ("00:00:00:00:00:00", "ff:ff:ff:ff:ff:ff"):
+                    return mac
+    return None
+
+
+def learn_mac(ip):
+    """Return the TV's MAC, reading the ARP table and caching it on disk."""
+    with _mac_lock:
+        macs = _load_macs()
+        found = _read_arp(ip)
+        if found and macs.get(ip) != found:
+            macs[ip] = found
+            try:
+                MAC_FILE.write_text(json.dumps(macs, indent=2), encoding="utf-8")
+            except OSError:
+                pass
+        return found or macs.get(ip)
+
+
+def wake_on_lan(mac):
+    packet = bytes.fromhex("ff" * 6) + bytes.fromhex(mac.replace(":", "")) * 16
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        for port in (9, 7):
+            sock.sendto(packet, ("255.255.255.255", port))
+
+
+def tv_is_awake(ip):
+    try:
+        with socket.create_connection((ip, 80), timeout=1.5):
+            return True
+    except OSError:
+        return False
+
+
+def handle_power(ip, psk):
+    """This TV ignores the IRCC toggle, accepts POWER_OFF while awake, and in
+    standby only answers Wake-on-LAN. So: reachable -> off, unreachable -> WoL."""
+    if tv_is_awake(ip):
+        learn_mac(ip)
+        return send_key(ip, psk, "POWER_OFF")
+    mac = learn_mac(ip)
+    if not mac:
+        return {"ok": False, "status": None,
+                "body": "MAC da TV desconhecido: use o controle com a TV ligada uma vez"}
+    wake_on_lan(mac)
+    return {"ok": True, "status": 200, "body": "Wake-on-LAN enviado (%s)" % mac}
 
 
 def send_key(ip, psk, key):
@@ -332,7 +418,10 @@ class Handler(BaseHTTPRequestHandler):
             if key not in IRCC_CODES:
                 self._send_json(400, {"ok": False, "status": None, "body": "tecla desconhecida"})
                 return
-            self._send_json(200, send_key(ip, psk, key))
+            if key == "POWER":
+                self._send_json(200, handle_power(ip, psk))
+            else:
+                self._send_json(200, send_key(ip, psk, key))
         elif self.path == "/api/probe":
             self._send_json(200, {"results": probe(ip, psk)})
         else:
