@@ -100,6 +100,55 @@ SOAP_TEMPLATE = (
 )
 
 
+REPO = "marcio-morais/sony_remote_tv_web"
+
+
+def _git_version():
+    """Short commit hash and date of the code this process started with."""
+    import subprocess
+
+    try:
+        flags = 0x08000000 if sys.platform.startswith("win") else 0  # CREATE_NO_WINDOW
+        out = subprocess.run(
+            ["git", "-C", str(ROOT.parent), "log", "-1", "--format=%h %cs"],
+            capture_output=True, text=True, timeout=3, creationflags=flags,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ("", "")
+    parts = out.split()
+    return (parts[0], parts[1]) if len(parts) == 2 else ("", "")
+
+
+SERVER_VERSION = _git_version()  # computed once: it describes the running code
+
+
+def version_label():
+    sha, day = SERVER_VERSION
+    return "%s · %s" % (sha, day) if sha else "desconhecida"
+
+
+def check_update():
+    """Compare the running commit with the newest commit on GitHub's main branch."""
+    request = urllib.request.Request(
+        "https://api.github.com/repos/%s/commits/main" % REPO,
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "sony-remote-tv-web"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=6) as response:
+            latest = json.loads(response.read().decode("utf-8"))["sha"]
+    except Exception:
+        return {"ok": False, "version": version_label(),
+                "body": "Não foi possível consultar o GitHub agora."}
+    sha = SERVER_VERSION[0]
+    if not sha:
+        return {"ok": True, "version": version_label(), "newer": None,
+                "body": "Versão local desconhecida (git não encontrado)."}
+    newer = not latest.startswith(sha)
+    body = ("Há versão nova no GitHub. Reinicie o PC (ou rode git pull e reinicie o servidor) para atualizar."
+            if newer else "O servidor está na versão mais recente.")
+    return {"ok": True, "version": version_label(), "newer": newer, "body": body}
+
+
 def is_private_ipv4(value):
     """Only literal private IPv4 addresses are allowed, so this proxy cannot be
     abused to reach the internet or arbitrary hosts."""
@@ -433,6 +482,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         route = urllib.parse.urlparse(self.path).path
+        if route == "/api/version":
+            self._send_json(200, {"version": version_label()})
+            return
         if route == "/":
             route = "/index.html"
         target = (ROOT / route.lstrip("/")).resolve()
@@ -459,6 +511,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if self.path == "/api/discover":
             self._send_json(200, discover())
+            return
+        if self.path == "/api/update-check":
+            self._send_json(200, check_update())
             return
 
         ip = str(payload.get("ip", "")).strip()
@@ -491,7 +546,7 @@ def main():
     local_only = "--local" in sys.argv
     host = "127.0.0.1" if local_only else "0.0.0.0"
     server = ThreadingHTTPServer((host, PORT), Handler)
-    print("SonyRemote rodando.")
+    print("SonyRemote rodando. Versão: %s" % version_label())
     print("  Neste PC:   http://localhost:%d" % PORT)
     if not local_only:
         print("  No celular: http://%s:%d  (mesma rede Wi-Fi)" % (lan_ip(), PORT))

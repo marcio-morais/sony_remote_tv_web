@@ -412,6 +412,10 @@
     <pre id="probeOut" hidden></pre>
     <p class="hint">Na TV: Configurações &gt; Rede &gt; Controle IP, com autenticação "Normal e Pre-Shared Key" e a mesma chave acima.</p>
 
+    <p class="hint" id="serverVersion">Versão do servidor: ...</p>
+    <button class="btn" id="checkUpdate" type="button">Verificar atualização</button>
+    <p class="hint" id="updateMsg" hidden></p>
+
     <h2 class="log-title" id="logTitle">Últimos comandos</h2>
     <p class="empty" id="empty">Aperte uma tecla para ver o retorno da TV.</p>
     <ul id="log" aria-labelledby="logTitle"></ul>
@@ -741,6 +745,35 @@
 
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') wakeIfStandby();
+  });
+
+  // Server version and update check (the update itself happens on the PC)
+  const versionEl = document.getElementById('serverVersion');
+  const updateBtn = document.getElementById('checkUpdate');
+  const updateMsg = document.getElementById('updateMsg');
+
+  fetch('/api/version').then(function (r) { return r.json(); }).then(function (data) {
+    versionEl.textContent = 'Versão do servidor: ' + data.version;
+  }).catch(function () { versionEl.textContent = 'Versão do servidor: indisponível'; });
+
+  updateBtn.addEventListener('click', async function () {
+    updateBtn.disabled = true;
+    updateBtn.textContent = 'Verificando...';
+    updateMsg.hidden = true;
+    try {
+      const response = await fetch('/api/update-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await response.json();
+      updateMsg.textContent = data.body;
+    } catch (err) {
+      updateMsg.textContent = 'Servidor local indisponível.';
+    }
+    updateMsg.hidden = false;
+    updateBtn.disabled = false;
+    updateBtn.textContent = 'Verificar atualização';
   });
 
   loadSettings();
