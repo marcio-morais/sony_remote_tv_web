@@ -2,7 +2,7 @@
 
 MVP web de um controle remoto para a TV Sony Bravia **KDL-42W655A**, usando o protocolo IRCC por Wi-Fi (o mesmo do app Video & TV SideView).
 
-Também serve como referência de layout para o app Android, que fica no repositório [sony_remote_tv](https://github.com/marcio-morais/sony_remote_tv).
+Também serve como referência de layout para o app Android, que fica no repositório [sony_remote_tv_android](https://github.com/marcio-morais/sony_remote_tv_android).
 
 ## Como rodar
 
