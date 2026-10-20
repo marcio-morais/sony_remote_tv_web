@@ -2,7 +2,15 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#D93C2F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sony Remote">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <title>Sony Remote</title>
 <style>
   :root {
@@ -55,7 +63,7 @@
   .appbar {
     position: sticky; top: 0; z-index: 1;
     background: var(--brand); color: #fff;
-    padding: 16px 20px;
+    padding: calc(16px + env(safe-area-inset-top)) 20px 16px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, .25);
   }
   .appbar .inner {
@@ -81,7 +89,7 @@
     overflow: auto;
   }
   .sheet::backdrop { background: rgba(0, 0, 0, .5); }
-  .sheet-body { padding: 8px 16px 32px 20px; }
+  .sheet-body { padding: 8px 16px calc(32px + env(safe-area-inset-bottom)) 20px; }
   .sheet-head { display: flex; align-items: center; justify-content: space-between; }
   .sheet-head h2 { margin: 0; font-size: 18px; }
   .log-title { margin: 24px 0 8px; }
@@ -149,6 +157,7 @@
     position: sticky; bottom: 0; z-index: 1;
     width: 100%; max-width: 390px; margin: 0 auto; display: flex;
     background: var(--panel); border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .tabs button {
     flex: 1; min-height: 56px; border: 0; background: transparent;
@@ -190,6 +199,16 @@
     background: transparent; border: 1px solid var(--line); border-radius: 10px;
     font-weight: 600; font-size: 14px;
   }
+  .install {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 8px 16px 0; padding: 10px 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    font-size: 13px; color: var(--text);
+  }
+  .install[hidden] { display: none; }
+  .install p { margin: 0; flex: 1 1 160px; }
+  .install .btn { margin: 0; min-height: 36px; padding: 0 12px; background: var(--accent); color: #fff; border-color: transparent; }
+  .install .close { margin: 0; min-height: 36px; padding: 0 10px; border: 0; background: transparent; color: var(--muted); font-size: 18px; }
   .hint { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
   pre {
     margin: 12px 0 0; padding: 12px; max-height: 280px; overflow: auto;
@@ -234,6 +253,12 @@
   <p class="status" id="status" data-tone="idle" role="status">
     <span class="dot"></span><span id="statusText">Toque na engrenagem para conectar</span>
   </p>
+
+  <div class="install" id="install" hidden>
+    <p id="installText"></p>
+    <button class="btn" id="installBtn" type="button">Instalar</button>
+    <button class="close" id="installClose" type="button" aria-label="Fechar aviso">&times;</button>
+  </div>
 
   <div class="pager" id="pager">
   <section class="tab" id="tab-remote" role="tabpanel" aria-label="Controle">
@@ -413,6 +438,7 @@
     <p class="hint">Na TV: Configurações &gt; Rede &gt; Controle IP, com autenticação "Normal e Pre-Shared Key" e a mesma chave acima.</p>
 
     <p class="hint" id="serverVersion">Versão do servidor: ...</p>
+    <button class="btn" id="showInstall" type="button" hidden>Instalar como app</button>
     <button class="btn" id="checkUpdate" type="button">Verificar atualização</button>
     <p class="hint" id="updateMsg" hidden></p>
 
@@ -746,6 +772,81 @@
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') wakeIfStandby();
   });
+
+  // Install as an app: native prompt where the browser offers one (Chrome over HTTPS),
+  // otherwise short instructions for Android (Chrome menu) and iPhone (Share sheet).
+  const installBox = document.getElementById('install');
+  const installText = document.getElementById('installText');
+  const installBtn = document.getElementById('installBtn');
+  const showInstallBtn = document.getElementById('showInstall');
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /android/i.test(navigator.userAgent);
+  let installPrompt = null;
+
+  function installDismissed() {
+    try { return localStorage.getItem('installDismissed') === '1'; } catch (err) { return false; }
+  }
+
+  function setInstallDismissed(value) {
+    try { localStorage.setItem('installDismissed', value ? '1' : '0'); } catch (err) { /* ignore */ }
+  }
+
+  function renderInstall(forceShow) {
+    if (isStandalone || !(installPrompt || isIos || isAndroid)) {
+      installBox.hidden = true;
+      showInstallBtn.hidden = true;
+      return;
+    }
+    showInstallBtn.hidden = false;
+    if (installPrompt) {
+      installText.textContent = 'Instale o controle como app no celular.';
+      installBtn.textContent = 'Instalar';
+    } else if (isIos) {
+      installText.textContent = 'No iPhone: toque em Compartilhar e depois em "Adicionar à Tela de Início".';
+      installBtn.textContent = 'Entendi';
+    } else {
+      installText.textContent = 'No Chrome: abra o menu (⋮) e toque em "Adicionar à tela inicial" ou "Instalar app".';
+      installBtn.textContent = 'Entendi';
+    }
+    installBox.hidden = installDismissed() && !forceShow;
+  }
+
+  window.addEventListener('beforeinstallprompt', function (event) {
+    event.preventDefault();
+    installPrompt = event;
+    renderInstall(false);
+  });
+
+  window.addEventListener('appinstalled', function () {
+    installPrompt = null;
+    installBox.hidden = true;
+    showInstallBtn.hidden = true;
+  });
+
+  installBtn.addEventListener('click', async function () {
+    if (installPrompt) {
+      installPrompt.prompt();
+      try { await installPrompt.userChoice; } catch (err) { /* ignore */ }
+      installPrompt = null;
+    }
+    setInstallDismissed(true);
+    installBox.hidden = true;
+  });
+
+  document.getElementById('installClose').addEventListener('click', function () {
+    setInstallDismissed(true);
+    installBox.hidden = true;
+  });
+
+  showInstallBtn.addEventListener('click', function () {
+    setInstallDismissed(false);
+    renderInstall(true);
+    settings.close();
+  });
+
+  renderInstall(false);
 
   // Server version and update check (the update itself happens on the PC)
   const versionEl = document.getElementById('serverVersion');
