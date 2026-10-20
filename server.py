@@ -177,33 +177,59 @@ def learn_mac(ip):
         return found or macs.get(ip)
 
 
-def wake_on_lan(mac):
+def wake_on_lan(mac, tv_ip):
     packet = bytes.fromhex("ff" * 6) + bytes.fromhex(mac.replace(":", "")) * 16
+    subnet_broadcast = tv_ip.rsplit(".", 1)[0] + ".255"
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        for port in (9, 7):
-            sock.sendto(packet, ("255.255.255.255", port))
+        for target in ("255.255.255.255", subnet_broadcast):
+            for port in (9, 7):
+                try:
+                    sock.sendto(packet, (target, port))
+                except OSError:
+                    pass
 
 
-def tv_is_awake(ip):
+_last_power = {}  # ip -> "on" / "off": what we last asked the TV to do
+
+
+def power_status(ip, psk):
+    """'active' / 'standby' when the TV answers getPowerStatus, else None.
+    The TV keeps answering HTTP in standby, so a TCP connect says nothing."""
+    headers = {"Content-Type": "application/json"}
+    if psk:
+        headers["X-Auth-PSK"] = psk
+    body = json.dumps(
+        {"method": "getPowerStatus", "id": 50, "params": [], "version": "1.0"}
+    ).encode("utf-8")
+    answer = http_call("http://%s/sony/system" % ip, body, headers, "POST")
     try:
-        with socket.create_connection((ip, 80), timeout=1.5):
-            return True
-    except OSError:
-        return False
+        return json.loads(answer["body"])["result"][0]["status"]
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
 
 
 def handle_power(ip, psk):
-    """This TV ignores the IRCC toggle, accepts POWER_OFF while awake, and in
-    standby only answers Wake-on-LAN. So: reachable -> off, unreachable -> WoL."""
-    if tv_is_awake(ip):
+    """This TV ignores the IRCC toggle, accepts POWER_OFF while on, and in
+    standby only wakes with Wake-on-LAN. We ask the TV for its state; when it
+    cannot say, we fall back to the last thing we sent."""
+    status = power_status(ip, psk)
+    if status is None:
+        status = "standby" if _last_power.get(ip) == "off" else "active"
+
+    if status == "active":
         learn_mac(ip)
-        return send_key(ip, psk, "POWER_OFF")
+        result = send_key(ip, psk, "POWER_OFF")
+        if result["ok"]:
+            _last_power[ip] = "off"
+        return result
+
     mac = learn_mac(ip)
     if not mac:
         return {"ok": False, "status": None,
                 "body": "MAC da TV desconhecido: use o controle com a TV ligada uma vez"}
-    wake_on_lan(mac)
+    wake_on_lan(mac, ip)
+    _last_power[ip] = "on"
     return {"ok": True, "status": 200, "body": "Wake-on-LAN enviado (%s)" % mac}
 
 
