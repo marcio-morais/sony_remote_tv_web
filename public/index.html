@@ -117,11 +117,7 @@
   .key.power { background: var(--power); color: #fff; border-color: transparent; }
   .row4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   .row5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
-  .stage {
-    display: grid; grid-template-columns: minmax(0, 60px) 1fr minmax(0, 60px);
-    gap: 8px; align-items: stretch;
-  }
-  .side { display: flex; flex-direction: column; justify-content: space-between; }
+  .stage { display: flex; justify-content: center; padding: 6px 0; }
   .audio { display: grid; grid-template-columns: 1fr 2fr 2fr; gap: 8px; }
   .grp { display: flex; flex-direction: column; gap: 4px; }
   .grp .key { flex: 1; }
@@ -155,13 +151,13 @@
   .dpad {
     justify-self: center;
     display: grid;
-    grid-template-columns: repeat(3, 52px);
-    grid-template-rows: repeat(3, 52px);
-    gap: 6px; padding: 6px;
+    grid-template-columns: repeat(3, 64px);
+    grid-template-rows: repeat(3, 64px);
+    gap: 6px; padding: 8px;
     background: var(--ring);
     border-radius: 999px;
   }
-  .dpad .key { width: 52px; min-height: 52px; border-radius: 50%; padding: 0; }
+  .dpad .key { width: 64px; min-height: 64px; border-radius: 50%; padding: 0; }
   .dpad .up { grid-area: 1 / 2; }
   .dpad .left { grid-area: 2 / 1; }
   .dpad .ok { grid-area: 2 / 2; background: #2B2F38; color: #fff; border-color: transparent; font-size: 15px; }
@@ -232,7 +228,7 @@
   <section class="tab" id="tab-remote" role="tabpanel" aria-label="Controle">
     <div class="row4">
       <button class="key sm" data-key="INPUT">Entrada</button>
-      <button class="key sm" data-key="GUIDE">Guia</button>
+      <button class="key sm accent" data-key="HOME">Home</button>
       <button class="key sm accent" data-key="SEN">SEN</button>
       <button class="key sm power" data-key="POWER" aria-label="Ligar ou desligar">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"></path><path d="M6.3 6.8a8 8 0 1 0 11.4 0"></path></svg>
@@ -240,11 +236,6 @@
     </div>
 
     <div class="stage">
-      <div class="side">
-        <span></span>
-        <button class="key sm" data-key="BACK">Voltar</button>
-      </div>
-
       <div class="dpad" role="group" aria-label="Navegação">
         <button class="key up" data-key="UP" data-repeat aria-label="Cima">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg>
@@ -259,11 +250,6 @@
         <button class="key down" data-key="DOWN" data-repeat aria-label="Baixo">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
         </button>
-      </div>
-
-      <div class="side">
-        <button class="key sm accent" data-key="HOME">Home</button>
-        <button class="key sm" data-key="OPTIONS">Opções</button>
       </div>
     </div>
 
@@ -299,8 +285,8 @@
     </div>
 
     <div class="row4">
-      <button class="key sm" data-key="SYNC_MENU">Sync Menu</button>
-      <button class="key sm" data-key="INFO">Info</button>
+      <button class="key sm" data-key="OPTIONS">Opções</button>
+      <button class="key sm" data-key="BACK">Voltar</button>
       <button class="key sm" data-key="EXIT">Sair</button>
       <button class="key sm" data-key="JUMP">Jump</button>
     </div>
