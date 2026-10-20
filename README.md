@@ -13,7 +13,9 @@ python server.py            # acessível pelo celular na mesma rede Wi-Fi
 python server.py --local    # somente neste computador
 ```
 
-Abra `http://localhost:8000`, informe o IP da TV e a chave PSK, e use **Testar conexão** antes de apertar as teclas.
+Abra `http://localhost:8000`. Na primeira vez a página procura a TV sozinha (botão **Buscar TV na rede**); se achar mais de uma, você escolhe na lista. Depois informe a chave PSK e use **Testar conexão** antes de apertar as teclas. Se a busca não achar, digite o IP manualmente.
+
+A busca usa SSDP (o mesmo mecanismo do app da Sony) e, como reforço, varre a faixa /24 da sua rede procurando a descrição UPnP da TV.
 
 Na TV: Configurações > Rede > Controle IP, com autenticação "Normal e Pre-Shared Key" e a mesma chave informada na página. Os nomes dos menus variam entre gerações.
 

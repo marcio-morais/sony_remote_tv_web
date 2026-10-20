@@ -133,6 +133,14 @@
     white-space: pre-wrap; word-break: break-word;
   }
   pre[hidden] { display: none; }
+  .found { display: grid; gap: 8px; margin-top: 10px; }
+  .found button {
+    min-height: 44px; padding: 8px 12px; text-align: left;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .found small { color: var(--muted); }
+  .btn[disabled] { opacity: .6; cursor: progress; }
 
   h2 { margin: 0 0 8px; font-size: 15px; }
   ul { list-style: none; margin: 0; padding: 0; }
@@ -222,6 +230,9 @@
 
   <details class="panel" id="connection" open>
     <summary>Conexão</summary>
+    <button class="btn" id="discover" type="button">Buscar TV na rede</button>
+    <div class="found" id="found"></div>
+    <p class="hint" id="discoverMsg" hidden></p>
     <div class="fields">
       <label>IP da TV
         <input id="ip" inputmode="decimal" autocomplete="off" placeholder="192.168.0.50">
@@ -383,7 +394,67 @@
     }
   });
 
+  // Auto-discovery: asks the local bridge to find Sony TVs on the Wi-Fi
+  const discoverBtn = document.getElementById('discover');
+  const foundEl = document.getElementById('found');
+  const discoverMsg = document.getElementById('discoverMsg');
+
+  function chooseDevice(device) {
+    ipInput.value = device.ip;
+    saveSettings();
+    foundEl.replaceChildren();
+    discoverMsg.hidden = true;
+    setStatus('TV encontrada: ' + device.name + ' (' + device.ip + ')', 'ok');
+  }
+
+  async function discover() {
+    discoverBtn.disabled = true;
+    discoverBtn.textContent = 'Buscando...';
+    foundEl.replaceChildren();
+    discoverMsg.hidden = true;
+    setStatus('Procurando a TV na rede...', 'warn');
+    try {
+      const response = await fetch('/api/discover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await response.json();
+      const devices = data.devices || [];
+      if (devices.length === 1) {
+        chooseDevice(devices[0]);
+      } else if (devices.length > 1) {
+        setStatus('Escolha a TV na lista', 'warn');
+        devices.forEach(function (device) {
+          const option = document.createElement('button');
+          option.type = 'button';
+          const title = document.createElement('span');
+          title.textContent = device.name + (device.model ? ' · ' + device.model : '');
+          const detail = document.createElement('small');
+          detail.textContent = device.ip;
+          option.append(title, detail);
+          option.addEventListener('click', function () { chooseDevice(device); });
+          foundEl.append(option);
+        });
+      } else {
+        setStatus('TV não encontrada', 'error');
+        discoverMsg.hidden = false;
+        discoverMsg.textContent = data.localIp && data.localIp.indexOf('127.') === 0
+          ? 'O aparelho que roda o servidor não parece estar em uma rede Wi-Fi.'
+          : 'Nenhuma TV Sony respondeu. Confira se a TV está ligada, no mesmo Wi-Fi, e digite o IP manualmente se precisar.';
+      }
+    } catch (err) {
+      setStatus('Servidor local indisponível', 'error');
+    } finally {
+      discoverBtn.disabled = false;
+      discoverBtn.textContent = 'Buscar TV na rede';
+    }
+  }
+
+  discoverBtn.addEventListener('click', discover);
+
   loadSettings();
+  if (!ipInput.value.trim()) discover();
 </script>
 </body>
 </html>

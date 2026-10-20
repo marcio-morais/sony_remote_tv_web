@@ -11,11 +11,16 @@ Usage:
 Then open http://localhost:8000 (or the LAN URL printed on start).
 Python 3.8+, standard library only.
 """
+import concurrent.futures
 import ipaddress
 import json
+import re
 import socket
 import sys
+import threading
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -23,6 +28,18 @@ from pathlib import Path
 PORT = 8000
 TIMEOUT_SECONDS = 4
 ROOT = Path(__file__).resolve().parent / "public"
+
+# TV discovery: SSDP multicast plus a scan of the local /24 as a backup
+SSDP_ADDRESS = ("239.255.255.250", 1900)
+SSDP_SEARCH_TARGETS = (
+    "urn:schemas-sony-com:service:IRCC:1",
+    "urn:schemas-sony-com:service:ScalarWebAPI:1",
+    "urn:schemas-upnp-org:device:MediaRenderer:1",
+)
+SSDP_LISTEN_SECONDS = 3
+SCAN_PATH = ":52323/dmr.xml"  # UPnP description served by Sony TVs
+SCAN_TIMEOUT_SECONDS = 0.7
+SCAN_WORKERS = 64
 
 # Standard Sony IRCC codes (base64 payload sent inside the SOAP envelope)
 IRCC_CODES = {
@@ -111,6 +128,112 @@ def probe(ip, psk):
     return results
 
 
+def fetch_text(url, timeout):
+    """GET a small text document; returns None on any failure."""
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            return response.read(16384).decode("utf-8", "replace")
+    except Exception:
+        return None
+
+
+def xml_field(text, tag):
+    match = re.search(r"<%s>([^<]*)</%s>" % (tag, tag), text)
+    return match.group(1).strip() if match else ""
+
+
+def sony_info(ip, description, hint=""):
+    """Returns device info when the UPnP description (or SSDP hint) says Sony."""
+    manufacturer = xml_field(description, "manufacturer")
+    if "sony" not in ("%s %s" % (manufacturer, hint)).lower():
+        return None
+    return {
+        "ip": ip,
+        "name": xml_field(description, "friendlyName") or "Sony TV",
+        "model": xml_field(description, "modelName"),
+    }
+
+
+def ssdp_discover(local_ip):
+    """Multicast M-SEARCH; returns {ip: info} for Sony devices that answer."""
+    found = {}
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    try:
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(local_ip))
+        sock.bind(("", 0))
+        for target in SSDP_SEARCH_TARGETS:
+            message = (
+                "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\n"
+                'MAN: "ssdp:discover"\r\nMX: 2\r\nST: %s\r\n\r\n' % target
+            )
+            sock.sendto(message.encode("ascii"), SSDP_ADDRESS)
+
+        deadline = time.time() + SSDP_LISTEN_SECONDS
+        while True:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            sock.settimeout(remaining)
+            try:
+                data, (ip, _port) = sock.recvfrom(2048)
+            except socket.timeout:
+                break
+            if ip in found or not is_private_ipv4(ip):
+                continue
+
+            headers = {}
+            for line in data.decode("utf-8", "replace").split("\r\n")[1:]:
+                if ":" in line:
+                    name, value = line.split(":", 1)
+                    headers[name.strip().lower()] = value.strip()
+            hint = "%s %s" % (headers.get("server", ""), headers.get("st", ""))
+
+            description = ""
+            location = headers.get("location", "")
+            # Only follow a description URL that points back at the responder itself
+            if urllib.parse.urlparse(location).hostname == ip:
+                description = fetch_text(location, 2) or ""
+            info = sony_info(ip, description, hint)
+            if info:
+                found[ip] = info
+    except OSError:
+        pass  # multicast not available on this network or device
+    finally:
+        sock.close()
+    return found
+
+
+def scan_subnet(local_ip):
+    """Probes every host of the local /24 for a Sony UPnP description."""
+    network = ipaddress.ip_network("%s/24" % local_ip, strict=False)
+    hosts = [str(host) for host in network.hosts() if str(host) != local_ip]
+
+    def check(ip):
+        text = fetch_text("http://%s%s" % (ip, SCAN_PATH), SCAN_TIMEOUT_SECONDS)
+        return sony_info(ip, text) if text else None
+
+    with concurrent.futures.ThreadPoolExecutor(SCAN_WORKERS) as pool:
+        return [info for info in pool.map(check, hosts) if info]
+
+
+def discover():
+    local_ip = lan_ip()
+    if not is_private_ipv4(local_ip):
+        return {"devices": [], "localIp": local_ip}
+
+    ssdp_result = {}
+    thread = threading.Thread(target=lambda: ssdp_result.update(ssdp_discover(local_ip)))
+    thread.start()
+    scanned = scan_subnet(local_ip)
+    thread.join()
+
+    devices = {}
+    for info in list(ssdp_result.values()) + scanned:
+        devices.setdefault(info["ip"], info)
+    return {"devices": list(devices.values()), "localIp": local_ip}
+
+
 def lan_ip():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -153,6 +276,10 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
         except (ValueError, json.JSONDecodeError):
             self._send_json(400, {"ok": False, "status": None, "body": "JSON inválido"})
+            return
+
+        if self.path == "/api/discover":
+            self._send_json(200, discover())
             return
 
         ip = str(payload.get("ip", "")).strip()
