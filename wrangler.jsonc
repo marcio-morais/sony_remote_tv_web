@@ -1,0 +1,8 @@
+{
+  // Static site: serves everything in ./public as Workers static assets
+  "name": "sony-remote-tv-web",
+  "compatibility_date": "2026-06-01",
+  "assets": {
+    "directory": "./public"
+  }
+}

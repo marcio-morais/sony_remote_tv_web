@@ -23,13 +23,14 @@ A TV só responde em HTTP puro e não envia cabeçalhos CORS. Uma página servid
 
 ## Limitação importante sobre hospedagem
 
-A pasta `public/` é um site estático e pode ser publicada em qualquer hospedagem (ex.: Cloudflare Pages, com diretório de saída `public` e sem comando de build), mas **uma página hospedada na internet não alcança a TV**: não existe `/api/*` lá, e o navegador bloqueia chamadas de HTTPS para `http://IP-da-TV`. Hospedada, ela serve como demonstração do layout. Para controlar a TV de verdade, use o `server.py` local ou o app Android.
+A pasta `public/` é um site estático e pode ser publicada em qualquer hospedagem (no Cloudflare Workers o `wrangler.jsonc` já aponta para ela, sem comando de build), mas **uma página hospedada na internet não alcança a TV**: não existe `/api/*` lá, e o navegador bloqueia chamadas de HTTPS para `http://IP-da-TV`. Hospedada, ela serve como demonstração do layout. Para controlar a TV de verdade, use o `server.py` local ou o app Android.
 
 ## Estrutura
 
 ```
 public/index.html   interface do controle (HTML, CSS e JS puros)
 server.py           servidor local + ponte para a TV (/api/send e /api/probe)
+wrangler.jsonc      configuração de deploy estático no Cloudflare Workers
 ```
 
 ## Próximos passos
