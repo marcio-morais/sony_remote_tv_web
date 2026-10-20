@@ -107,8 +107,18 @@
   }
   .key:active { filter: brightness(.9); }
 
-  .tab { display: flex; flex-direction: column; gap: 14px; }
-  .tab[hidden] { display: none; }
+  /* Swipeable pages: the browser scrolls and snaps, so the page follows the finger */
+  .pager {
+    display: flex; margin: 0 -20px;
+    overflow-x: auto; overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory; scrollbar-width: none;
+  }
+  .pager::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 100%; min-width: 0; padding: 0 20px;
+    scroll-snap-align: start; scroll-snap-stop: always;
+    display: flex; flex-direction: column; gap: 14px;
+  }
   .key.sm {
     min-height: 48px; border-radius: 24px; padding: 0 6px;
     font-size: 13px; line-height: 1.15; text-align: center;
@@ -225,6 +235,7 @@
     <span class="dot"></span><span id="statusText">Toque na engrenagem para conectar</span>
   </p>
 
+  <div class="pager" id="pager">
   <section class="tab" id="tab-remote" role="tabpanel" aria-label="Controle">
     <div class="row4">
       <button class="key sm" data-key="INPUT">Entrada</button>
@@ -292,7 +303,7 @@
     </div>
   </section>
 
-  <section class="tab" id="tab-numbers" role="tabpanel" aria-label="Números" hidden>
+  <section class="tab" id="tab-numbers" role="tabpanel" aria-label="Números">
     <div class="numpad">
       <button class="key" data-key="NUM1">1</button>
       <button class="key" data-key="NUM2">2</button>
@@ -364,6 +375,7 @@
       </div>
     </div>
   </section>
+  </div>
 </main>
 
 <nav class="tabs" role="tablist" aria-label="Seções do controle">
@@ -515,28 +527,42 @@
     }
   }
 
-  // Keys: tap = one press; arrows, volume and channel repeat while held
+  // Keys: tap = one press, sent on release so a swipe that starts on a key
+  // (the browser cancels the pointer) never fires it. Arrows, volume and
+  // channel keep repeating while held.
   const REPEAT_DELAY_MS = 450;
   const REPEAT_INTERVAL_MS = 160;
-  let holdTimer = null;
-  let holdInterval = null;
-
-  function stopHold() {
-    clearTimeout(holdTimer);
-    clearInterval(holdInterval);
-    holdTimer = holdInterval = null;
-  }
 
   document.querySelectorAll('[data-key]').forEach(function (button) {
     const key = button.dataset.key;
     if (button.hasAttribute('data-repeat')) {
+      let pressed = false;
+      let held = false;
+      let holdTimer = null;
+      let holdInterval = null;
+
+      function stopHold() {
+        pressed = false;
+        clearTimeout(holdTimer);
+        clearInterval(holdInterval);
+        holdTimer = holdInterval = null;
+      }
+
       button.addEventListener('pointerdown', function () {
-        sendKey(key);
+        pressed = true;
+        held = false;
         holdTimer = setTimeout(function () {
+          held = true;
+          sendKey(key);
           holdInterval = setInterval(function () { sendKey(key); }, REPEAT_INTERVAL_MS);
         }, REPEAT_DELAY_MS);
       });
-      ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (type) {
+      button.addEventListener('pointerup', function () {
+        const isTap = pressed && !held;
+        stopHold();
+        if (isTap) sendKey(key);
+      });
+      ['pointerleave', 'pointercancel'].forEach(function (type) {
         button.addEventListener(type, stopHold);
       });
       // Keyboard activation (Enter/Space) arrives as a click with detail 0
@@ -649,19 +675,40 @@
 
   discoverBtn.addEventListener('click', discover);
 
-  // Bottom tabs switch between the remote and the number pad
-  const tabButtons = document.querySelectorAll('.tabs [role="tab"]');
-  function selectTab(name) {
-    tabButtons.forEach(function (button) {
-      button.setAttribute('aria-selected', String(button.dataset.tab === name));
+  // Pages: swipe sideways or tap a tab at the bottom. The off-screen page is
+  // inert so Tab and screen readers skip its keys.
+  const pager = document.getElementById('pager');
+  const panels = Array.from(pager.querySelectorAll('.tab'));
+  const tabButtons = Array.from(document.querySelectorAll('.tabs [role="tab"]'));
+  let currentTab = 0;
+  let targetTab = null; // set while a tab tap is scrolling, so the scroll handler does not fight it
+
+  function setActiveTab(index) {
+    currentTab = index;
+    tabButtons.forEach(function (button, i) {
+      button.setAttribute('aria-selected', String(i === index));
     });
-    document.querySelectorAll('.tab').forEach(function (panel) {
-      panel.hidden = panel.id !== 'tab-' + name;
-    });
+    panels.forEach(function (panel, i) { panel.inert = i !== index; });
   }
-  tabButtons.forEach(function (button) {
-    button.addEventListener('click', function () { selectTab(button.dataset.tab); });
+
+  pager.addEventListener('scroll', function () {
+    const index = Math.round(pager.scrollLeft / pager.clientWidth);
+    if (targetTab !== null) {
+      if (index === targetTab) targetTab = null;
+      return;
+    }
+    if (index !== currentTab) setActiveTab(index);
+  }, { passive: true });
+  pager.addEventListener('touchstart', function () { targetTab = null; }, { passive: true });
+
+  tabButtons.forEach(function (button, index) {
+    button.addEventListener('click', function () {
+      targetTab = index === Math.round(pager.scrollLeft / pager.clientWidth) ? null : index;
+      setActiveTab(index);
+      pager.scrollTo({ left: index * pager.clientWidth, behavior: 'smooth' });
+    });
   });
+  setActiveTab(0);
 
   // Connection and command history live in a sheet opened by the gear
   function openSettings() {
