@@ -193,6 +193,14 @@ def wake_on_lan(mac, tv_ip):
 _last_power = {}  # ip -> "on" / "off": what we last asked the TV to do
 
 
+def tv_is_reachable(ip):
+    try:
+        with socket.create_connection((ip, 80), timeout=1.5):
+            return True
+    except OSError:
+        return False
+
+
 def power_status(ip, psk):
     """'active' / 'standby' when the TV answers getPowerStatus, else None.
     The TV keeps answering HTTP in standby, so a TCP connect says nothing."""
@@ -215,7 +223,10 @@ def handle_power(ip, psk):
     cannot say, we fall back to the last thing we sent."""
     status = power_status(ip, psk)
     if status is None:
-        status = "standby" if _last_power.get(ip) == "off" else "active"
+        if not tv_is_reachable(ip):
+            status = "standby"  # deep standby: the TV's network is down
+        else:
+            status = "standby" if _last_power.get(ip) == "off" else "active"
 
     if status == "active":
         learn_mac(ip)
