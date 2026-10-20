@@ -44,10 +44,10 @@
   .remote {
     max-width: 390px;
     margin: 0 auto;
-    padding: 24px 20px 48px;
+    padding: 16px 20px 24px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 14px;
   }
   .appbar {
     position: sticky; top: 0; z-index: 1;
@@ -60,6 +60,28 @@
     display: flex; align-items: center; gap: 14px;
   }
   h1 { margin: 0; font-size: 20px; font-weight: 500; }
+  .iconbtn {
+    margin-left: auto; width: 44px; height: 44px; flex: none;
+    border: 0; border-radius: 50%; background: transparent; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .iconbtn:active { background: rgba(255, 255, 255, .2); }
+  .iconbtn.dark { color: var(--text); margin-left: 0; }
+  .iconbtn.dark:active { background: var(--ring); }
+  .appbar .iconbtn:focus-visible { outline-color: #fff; }
+
+  .sheet {
+    width: min(100%, 390px); max-width: 100%; max-height: 92vh;
+    margin: auto auto 0; padding: 0; border: 0;
+    border-radius: 20px 20px 0 0;
+    background: var(--panel); color: var(--text);
+    overflow: auto;
+  }
+  .sheet::backdrop { background: rgba(0, 0, 0, .5); }
+  .sheet-body { padding: 8px 16px 32px 20px; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; }
+  .sheet-head h2 { margin: 0; font-size: 18px; }
+  .log-title { margin: 24px 0 8px; }
   .status {
     margin: 0;
     display: flex; align-items: center; gap: 8px;
@@ -113,9 +135,10 @@
 
   .panel { background: var(--panel); border-radius: 16px; padding: 16px; }
   summary { font-weight: 600; cursor: pointer; }
-  .fields { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-top: 14px; }
+  .fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; margin-top: 14px; }
   label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
   input {
+    width: 100%; min-width: 0;
     min-height: 44px; padding: 0 12px;
     background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
     font-size: 16px; color: var(--text);
@@ -160,11 +183,14 @@
   <div class="inner">
     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg>
     <h1>Sony KDL-42W655A</h1>
+    <button class="iconbtn" id="openSettings" type="button" aria-label="Conexão e histórico">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+    </button>
   </div>
 </header>
 <main class="remote">
   <p class="status" id="status" data-tone="idle" role="status">
-    <span class="dot"></span><span id="statusText">Defina o IP da TV em Conexão</span>
+    <span class="dot"></span><span id="statusText">Toque na engrenagem para conectar</span>
   </p>
 
   <div class="top">
@@ -228,8 +254,16 @@
     </button>
   </div>
 
-  <details class="panel" id="connection" open>
-    <summary>Conexão</summary>
+</main>
+
+<dialog class="sheet" id="settings" aria-labelledby="settingsTitle">
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <h2 id="settingsTitle">Conexão</h2>
+      <button class="iconbtn dark" id="closeSettings" type="button" aria-label="Fechar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+    </div>
     <button class="btn" id="discover" type="button">Buscar TV na rede</button>
     <div class="found" id="found"></div>
     <p class="hint" id="discoverMsg" hidden></p>
@@ -244,14 +278,12 @@
     <button class="btn" id="probe" type="button">Testar conexão</button>
     <pre id="probeOut" hidden></pre>
     <p class="hint">Na TV: Configurações &gt; Rede &gt; Controle IP, com autenticação "Normal e Pre-Shared Key" e a mesma chave acima.</p>
-  </details>
 
-  <section class="panel" aria-labelledby="logTitle">
-    <h2 id="logTitle">Últimos comandos</h2>
+    <h2 class="log-title" id="logTitle">Últimos comandos</h2>
     <p class="empty" id="empty">Aperte uma tecla para ver o retorno da TV.</p>
-    <ul id="log"></ul>
-  </section>
-</main>
+    <ul id="log" aria-labelledby="logTitle"></ul>
+  </div>
+</dialog>
 
 <script>
   const ipInput = document.getElementById('ip');
@@ -261,6 +293,7 @@
   const logEl = document.getElementById('log');
   const emptyEl = document.getElementById('empty');
   const probeOut = document.getElementById('probeOut');
+  const settings = document.getElementById('settings');
   const STORAGE_KEY = 'sonyremote.settings';
   const LOG_LIMIT = 8;
 
@@ -322,9 +355,8 @@
 
   async function sendKey(key) {
     if (!ipInput.value.trim()) {
-      setStatus('Defina o IP da TV em Conexão', 'warn');
-      document.getElementById('connection').open = true;
-      ipInput.focus();
+      setStatus('Defina o IP da TV na engrenagem', 'warn');
+      openSettings();
       return;
     }
     if (navigator.vibrate) navigator.vibrate(10);
@@ -339,9 +371,9 @@
     if (result.ok) {
       setStatus('Conectado · ' + ipInput.value.trim(), 'ok');
     } else if (result.status === 403) {
-      setStatus('TV recusou (403): provável PIN/registro. Rode "Testar conexão".', 'error');
+      setStatus('TV recusou (403): confira a chave PSK na engrenagem.', 'error');
     } else {
-      setStatus('Sem resposta da TV. Rode "Testar conexão".', 'error');
+      setStatus('Sem resposta da TV. Abra a engrenagem e teste a conexão.', 'error');
     }
   }
 
@@ -438,6 +470,7 @@
         });
       } else {
         setStatus('TV não encontrada', 'error');
+        openSettings();
         discoverMsg.hidden = false;
         discoverMsg.textContent = data.localIp && data.localIp.indexOf('127.') === 0
           ? 'O aparelho que roda o servidor não parece estar em uma rede Wi-Fi.'
@@ -452,6 +485,17 @@
   }
 
   discoverBtn.addEventListener('click', discover);
+
+  // Connection and command history live in a sheet opened by the gear
+  function openSettings() {
+    if (!settings.open) settings.showModal();
+  }
+  document.getElementById('openSettings').addEventListener('click', openSettings);
+  document.getElementById('closeSettings').addEventListener('click', function () { settings.close(); });
+  // A click on the backdrop targets the dialog itself (the body fills the rest)
+  settings.addEventListener('click', function (event) {
+    if (event.target === settings) settings.close();
+  });
 
   loadSettings();
   if (!ipInput.value.trim()) discover();
