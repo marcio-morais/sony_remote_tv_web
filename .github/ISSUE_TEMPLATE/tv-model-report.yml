@@ -1,0 +1,38 @@
+name: Relatar modelo de TV / TV model report
+description: Conte o que funciona (ou não) no seu modelo Sony Bravia
+labels: ["tv-model"]
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Modelo da TV / TV model
+      description: Está na etiqueta atrás da TV, por exemplo KDL-42W655A
+    validations:
+      required: true
+  - type: dropdown
+    id: control_ip
+    attributes:
+      label: Controle IP está ativado? / Is IP Control enabled?
+      options: ["Sim / Yes", "Não / No", "Não achei a opção / Could not find it"]
+    validations:
+      required: true
+  - type: textarea
+    id: works
+    attributes:
+      label: O que funciona / What works
+      description: Teclas, busca automática da TV, infravermelho (se o celular tiver emissor)
+  - type: textarea
+    id: fails
+    attributes:
+      label: O que não funciona / What fails
+      description: Diga a mensagem que aparece em "Últimos comandos", se houver
+  - type: textarea
+    id: power
+    attributes:
+      label: Ligar e desligar / Power on and off
+      description: O botão Liga desliga a TV? Ela liga de volta do standby (Wake-on-LAN)?
+  - type: input
+    id: version
+    attributes:
+      label: Versão do servidor / Server version
+      description: Aparece em Configurações (engrenagem), como "Versão do servidor"
