@@ -123,6 +123,7 @@ SERVER_VERSION = _git_version()  # computed once: it describes the running code
 
 
 def version_label():
+    """Human-readable version of the running code, shown in the web UI."""
     sha, day = SERVER_VERSION
     return "%s · %s" % (sha, day) if sha else "desconhecida"
 
@@ -160,6 +161,7 @@ def is_private_ipv4(value):
 
 
 def http_call(url, data=None, headers=None, method="GET"):
+    """One HTTP request. Never raises: returns {"status", "body"}, with status None on network errors."""
     request = urllib.request.Request(url, data=data, headers=headers or {}, method=method)
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
@@ -177,6 +179,7 @@ _mac_lock = threading.Lock()
 
 
 def _load_macs():
+    """MAC addresses remembered from earlier runs ({ip: mac}); empty if the file is missing."""
     try:
         return json.loads(MAC_FILE.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -227,6 +230,8 @@ def learn_mac(ip):
 
 
 def wake_on_lan(mac, tv_ip):
+    """Send the magic packet (6x 0xFF + 16x MAC) as UDP broadcast on ports 9 and 7, to both the
+    global and the subnet broadcast address, since networks differ in which one they forward."""
     packet = bytes.fromhex("ff" * 6) + bytes.fromhex(mac.replace(":", "")) * 16
     subnet_broadcast = tv_ip.rsplit(".", 1)[0] + ".255"
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -243,6 +248,7 @@ _last_power = {}  # ip -> "on" / "off": what we last asked the TV to do
 
 
 def tv_is_reachable(ip):
+    """True if the TV accepts a TCP connection on port 80. Proves the network is up, not that the TV is on."""
     try:
         with socket.create_connection((ip, 80), timeout=1.5):
             return True
@@ -314,6 +320,7 @@ def handle_power(ip, psk):
 
 
 def send_key(ip, psk, key):
+    """Send one IRCC key to the TV. Returns the HTTP result plus an "ok" flag."""
     headers = {
         "Content-Type": "text/xml; charset=UTF-8",
         "SOAPACTION": '"urn:schemas-sony-com:service:IRCC:1#X_SendIRCC"',
@@ -358,6 +365,7 @@ def fetch_text(url, timeout):
 
 
 def xml_field(text, tag):
+    """Text of the first <tag> in a small XML document, or "" (a regex is enough for UPnP descriptions)."""
     match = re.search(r"<%s>([^<]*)</%s>" % (tag, tag), text)
     return match.group(1).strip() if match else ""
 
@@ -438,6 +446,7 @@ def scan_subnet(local_ip):
 
 
 def discover():
+    """Find Sony TVs on the LAN: SSDP in a thread while the /24 scan runs, results merged by IP."""
     local_ip = lan_ip()
     if not is_private_ipv4(local_ip):
         return {"devices": [], "localIp": local_ip}
@@ -455,6 +464,7 @@ def discover():
 
 
 def lan_ip():
+    """This PC's LAN address. The UDP connect sends nothing; it only makes the OS pick the right interface."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.connect(("10.255.255.255", 1))
@@ -466,6 +476,8 @@ def lan_ip():
 
 
 class Handler(BaseHTTPRequestHandler):
+    """Serves the UI from public/ and the JSON API under /api/ (GET: version; POST: everything else)."""
+
     def log_message(self, fmt, *args):
         # Started without a console (pythonw, launchd, systemd): stderr may not exist
         if sys.stderr is not None:
